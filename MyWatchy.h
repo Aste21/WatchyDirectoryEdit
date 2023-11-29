@@ -69,6 +69,7 @@ public:
   void setTime();
   void setupWifi();
   bool connectWiFi();
+  bool isAnyButtonPressed();
   weatherData getWeatherData();
   weatherData getWeatherData(String cityID, String units, String lang,
                              String url, String apiKey, uint8_t updateInterval);
