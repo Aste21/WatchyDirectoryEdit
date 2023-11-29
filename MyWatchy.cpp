@@ -28,7 +28,7 @@ void Watchy::init(String datetime)
 
   // Init the display here for all cases, if unused, it will do nothing
   display.epd2.selectSPI(SPI, SPISettings(20000000, MSBFIRST, SPI_MODE0)); // Set SPI to 20Mhz (default is 4Mhz)
-  display.init(0, displayFullInit, 10, true); // 10ms by spec, and fast pulldown reset
+  display.init(0, displayFullInit, 10, true);                              // 10ms by spec, and fast pulldown reset
   display.epd2.setBusyCallback(displayBusyCallback);
   RTC.config(datetime);
   _bmaConfig();
@@ -39,11 +39,10 @@ void Watchy::init(String datetime)
   showWatchFace(false); // full update on reset
   vibMotor(75, 4);
   shownDirection = sensor.getDirection();
-
   while (true)
   {
     RTC.read(currentTime);
-    if (currentTime.Minute != shownTime.Minute)
+    if (currentTime.Minute != shownTime.Minute || shownDirection != sensor.getDirection())
     {
       RTC.read(shownTime);
       switch (guiState)
@@ -73,38 +72,11 @@ void Watchy::init(String datetime)
         break;
       }
     }
-    if(shownDirection != sensor.getDirection())
+    if(isAnyButtonPressed())
     {
-      shownDirection = sensor.getDirection();
-      RTC.read(shownTime);
-      switch (guiState)
-      {
-      case WATCHFACE_STATE:
-        showWatchFace(true); // partial updates on tick
-        if (settings.vibrateOClock)
-        {
-          if (currentTime.Minute == 0)
-          {
-            // The RTC wakes us up once per minute
-            vibMotor(75, 4);
-          }
-        }
-        break;
-      case MAIN_MENU_STATE:
-        // Return to watchface if in menu for more than one tick
-        if (alreadyInMenu)
-        {
-          guiState = WATCHFACE_STATE;
-          showWatchFace(false);
-        }
-        else
-        {
-          alreadyInMenu = true;
-        }
-        break;
-      }
+      handleButtonPress();
     }
-    std::this_thread::sleep_for(std::chrono::milliseconds(500) );
+    // std::this_thread::sleep_for(std::chrono::milliseconds(500));
     // wakeup_reason = esp_sleep_get_wakeup_cause(); // get wake up reason
     // if (wakeup_reason != ESP_SLEEP_WAKEUP_UNDEFINED)
     // {
@@ -180,11 +152,37 @@ void Watchy::deepSleep()
   esp_deep_sleep_start();
 }
 
+// bool Watchy::isAnyButtonPressed()
+// {
+//   const int buttonPins[] = {MENU_BTN_PIN, BACK_BTN_PIN, UP_BTN_PIN, DOWN_BTN_PIN};
+//   for (int i = 0; i < sizeof(buttonPins) / sizeof(buttonPins[0]); i++)
+//   {
+//     if (digitalRead(buttonPins[i]) == HIGH)
+//     {
+//       return true;
+//     }
+//     return false;
+//   }
+// }
+
+bool Watchy::isAnyButtonPressed() {
+  // Check the state of each button
+  const int buttonPins[] = {MENU_BTN_PIN, BACK_BTN_PIN, UP_BTN_PIN, DOWN_BTN_PIN};
+  for (int buttonPin : buttonPins) { // iterate through the array of button pins
+    if (digitalRead(buttonPin) == HIGH) { // check if the button is pressed
+      return true; // if any button is pressed, return true
+    }
+  }
+
+  // If no buttons are pressed, return false
+  return false;
+}
+
+
 void Watchy::handleButtonPress()
 {
-  uint64_t wakeupBit = esp_sleep_get_ext1_wakeup_status();
   // Menu Button
-  if (wakeupBit & MENU_BTN_MASK)
+  if (MENU_BTN_MASK)
   {
     if (guiState ==
         WATCHFACE_STATE)
@@ -227,7 +225,7 @@ void Watchy::handleButtonPress()
     }
   }
   // Back Button
-  else if (wakeupBit & BACK_BTN_MASK)
+  else if (BACK_BTN_MASK)
   {
     if (guiState == MAIN_MENU_STATE)
     { // exit to watch face if already in menu
@@ -248,7 +246,7 @@ void Watchy::handleButtonPress()
     }
   }
   // Up Button
-  else if (wakeupBit & UP_BTN_MASK)
+  else if (UP_BTN_MASK)
   {
     if (guiState == MAIN_MENU_STATE)
     { // increment menu index
@@ -265,7 +263,7 @@ void Watchy::handleButtonPress()
     }
   }
   // Down Button
-  else if (wakeupBit & DOWN_BTN_MASK)
+  else if (DOWN_BTN_MASK)
   {
     if (guiState == MAIN_MENU_STATE)
     { // decrement menu index
