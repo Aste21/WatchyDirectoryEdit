@@ -1,6 +1,8 @@
 #ifndef WATCHY_H
 #define WATCHY_H
 
+#include <vector>
+
 #include <Arduino.h>
 #include <WiFiManager.h>
 #include <HTTPClient.h>
@@ -8,6 +10,7 @@
 #include <WiFiUdp.h>
 #include <Arduino_JSON.h>
 #include <GxEPD2_BW.h>
+#include <GxEPD2.h>
 #include <Wire.h>
 #include <Fonts/FreeMonoBold9pt7b.h>
 #include "DSEG7_Classic_Bold_53.h"
@@ -40,12 +43,24 @@ typedef struct watchySettings {
   bool vibrateOClock;
 } watchySettings;
 
+
+class Widget {
+
+};
+
 class Watchy {
 public:
   static WatchyRTC RTC;
   static GxEPD2_BW<WatchyDisplay, WatchyDisplay::HEIGHT> display;
   tmElements_t currentTime;
   watchySettings settings;
+  int stepCountGoal = 5000;
+
+  // think abt this one, i guess 
+  int numberOfWidgets = 0;
+
+  // add list of vectors, i assume max 5 vectors then the ones i get access to i base on numberOfWidgets
+  std::vector<int> widgetNumber = {0, 0, 0, 0, 0};
 
 public:
   explicit Watchy(const watchySettings &s) : settings(s) {} // constructor
@@ -63,6 +78,7 @@ public:
   void showAccelerometer();
   void showUpdateFW();
   void showSyncNTP();
+  void showStepChange();
   bool syncNTP();
   bool syncNTP(long gmt);
   bool syncNTP(long gmt, String ntpServer);
@@ -76,6 +92,7 @@ public:
   void updateFWBegin();
 
   void showWatchFace(bool partialRefresh);
+  // add bool isInShowCase
   virtual void drawWatchFace(); // override this method for different watch
                                 // faces
 

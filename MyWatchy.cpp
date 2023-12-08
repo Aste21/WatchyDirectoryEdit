@@ -19,12 +19,14 @@ RTC_DATA_ATTR bool alreadyInMenu = true;
 RTC_DATA_ATTR tmElements_t bootTime;
 RTC_DATA_ATTR tmElements_t shownTime;
 uint8_t shownDirection;
+int ADDED_MENU_OPTIONS = 1;
 
 void Watchy::init(String datetime)
 {
   esp_sleep_wakeup_cause_t wakeup_reason;
   Wire.begin(SDA, SCL); // init i2c
   RTC.init();
+  guiState = WATCHFACE_STATE;
 
   // Init the display here for all cases, if unused, it will do nothing
   display.epd2.selectSPI(SPI, SPISettings(20000000, MSBFIRST, SPI_MODE0)); // Set SPI to 20Mhz (default is 4Mhz)
@@ -58,66 +60,24 @@ void Watchy::init(String datetime)
           }
         }
         break;
-      case MAIN_MENU_STATE:
-        // Return to watchface if in menu for more than one tick
-        if (alreadyInMenu)
-        {
-          guiState = WATCHFACE_STATE;
-          showWatchFace(false);
-        }
-        else
-        {
-          alreadyInMenu = true;
-        }
-        break;
+      // case MAIN_MENU_STATE:
+      //   // Return to watchface if in menu for more than one tick
+      //   if (alreadyInMenu)
+      //   {
+      //     guiState = WATCHFACE_STATE;
+      //     showWatchFace(false);
+      //   }
+      //   else
+      //   {
+      //     alreadyInMenu = true;
+      //   }
+      //   break;
       }
     }
     if(isAnyButtonPressed())
     {
       handleButtonPress();
     }
-    // std::this_thread::sleep_for(std::chrono::milliseconds(500));
-    // wakeup_reason = esp_sleep_get_wakeup_cause(); // get wake up reason
-    // if (wakeup_reason != ESP_SLEEP_WAKEUP_UNDEFINED)
-    // {
-    //   switch (wakeup_reason)
-    //   {
-    //   case ESP_SLEEP_WAKEUP_EXT0: // RTC Alarm
-    //     RTC.read(currentTime);
-    //     switch (guiState)
-    //     {
-    //     case WATCHFACE_STATE:
-    //       showWatchFace(true); // partial updates on tick
-    //       if (settings.vibrateOClock)
-    //       {
-    //         if (currentTime.Minute == 0)
-    //         {
-    //           // The RTC wakes us up once per minute
-    //           vibMotor(75, 4);
-    //         }
-    //       }
-    //       break;
-    //     case MAIN_MENU_STATE:
-    //       // Return to watchface if in menu for more than one tick
-    //       if (alreadyInMenu)
-    //       {
-    //         guiState = WATCHFACE_STATE;
-    //         showWatchFace(false);
-    //       }
-    //       else
-    //       {
-    //         alreadyInMenu = true;
-    //       }
-    //       break;
-    //     }
-    //     break;
-    //   case ESP_SLEEP_WAKEUP_EXT1: // button Press
-    //     handleButtonPress();
-    //     break;
-    //   default:
-    //     break;
-    //   }
-    // }
   }
 }
 
@@ -152,18 +112,6 @@ void Watchy::deepSleep()
   esp_deep_sleep_start();
 }
 
-// bool Watchy::isAnyButtonPressed()
-// {
-//   const int buttonPins[] = {MENU_BTN_PIN, BACK_BTN_PIN, UP_BTN_PIN, DOWN_BTN_PIN};
-//   for (int i = 0; i < sizeof(buttonPins) / sizeof(buttonPins[0]); i++)
-//   {
-//     if (digitalRead(buttonPins[i]) == HIGH)
-//     {
-//       return true;
-//     }
-//     return false;
-//   }
-// }
 
 bool Watchy::isAnyButtonPressed() {
   // Check the state of each button
@@ -215,6 +163,9 @@ void Watchy::handleButtonPress()
       case 6:
         showSyncNTP();
         break;
+      case 7:
+        showStepChange();
+        break;
       default:
         break;
       }
@@ -253,7 +204,7 @@ void Watchy::handleButtonPress()
       menuIndex--;
       if (menuIndex < 0)
       {
-        menuIndex = MENU_LENGTH - 1;
+        menuIndex = MENU_LENGTH + ADDED_MENU_OPTIONS - 1;
       }
       showMenu(menuIndex, true);
     }
@@ -268,7 +219,7 @@ void Watchy::handleButtonPress()
     if (guiState == MAIN_MENU_STATE)
     { // decrement menu index
       menuIndex++;
-      if (menuIndex > MENU_LENGTH - 1)
+      if (menuIndex > MENU_LENGTH + ADDED_MENU_OPTIONS - 1)
       {
         menuIndex = 0;
       }
@@ -324,6 +275,9 @@ void Watchy::handleButtonPress()
           case 6:
             showSyncNTP();
             break;
+          case 7:
+            showStepChange();
+            break;
           default:
             break;
           }
@@ -360,7 +314,7 @@ void Watchy::handleButtonPress()
           menuIndex--;
           if (menuIndex < 0)
           {
-            menuIndex = MENU_LENGTH - 1;
+            menuIndex = MENU_LENGTH + ADDED_MENU_OPTIONS - 1;
           }
           showFastMenu(menuIndex);
         }
@@ -371,7 +325,7 @@ void Watchy::handleButtonPress()
         if (guiState == MAIN_MENU_STATE)
         { // decrement menu index
           menuIndex++;
-          if (menuIndex > MENU_LENGTH - 1)
+          if (menuIndex > MENU_LENGTH + ADDED_MENU_OPTIONS - 1)
           {
             menuIndex = 0;
           }
@@ -395,8 +349,8 @@ void Watchy::showMenu(byte menuIndex, bool partialRefresh)
   const char *menuItems[] = {
       "About Watchy", "Vibrate Motor", "Show Accelerometer",
       "Set Time", "Setup WiFi", "Update Firmware",
-      "Sync NTP"};
-  for (int i = 0; i < MENU_LENGTH; i++)
+      "Sync NTP", "Change Steps"};
+  for (int i = 0; i < MENU_LENGTH + ADDED_MENU_OPTIONS; i++)
   {
     yPos = MENU_HEIGHT + (MENU_HEIGHT * i);
     display.setCursor(0, yPos);
@@ -433,8 +387,8 @@ void Watchy::showFastMenu(byte menuIndex)
   const char *menuItems[] = {
       "About Watchy", "Vibrate Motor", "Show Accelerometer",
       "Set Time", "Setup WiFi", "Update Firmware",
-      "Sync NTP"};
-  for (int i = 0; i < MENU_LENGTH; i++)
+      "Sync NTP", "Change Steps"};
+  for (int i = 0; i < MENU_LENGTH + ADDED_MENU_OPTIONS; i++)
   {
     yPos = MENU_HEIGHT + (MENU_HEIGHT * i);
     display.setCursor(0, yPos);
@@ -774,6 +728,49 @@ void Watchy::showAccelerometer()
     }
   }
 
+  showMenu(menuIndex, false);
+}
+
+void Watchy::showStepChange()
+{
+  guiState = APP_STATE;
+
+  display.setFullWindow();
+  display.setFont(&FreeMonoBold9pt7b);
+  display.setTextColor(GxEPD_WHITE);
+  pinMode(BACK_BTN_PIN, INPUT);
+  pinMode(UP_BTN_PIN, INPUT);
+  pinMode(DOWN_BTN_PIN, INPUT);
+  display.fillScreen(GxEPD_BLACK);
+  display.setCursor(0, 30);
+  display.print("Current step count goal: ");
+  display.print(stepCountGoal);
+  display.display(false); // full refresh
+  while(true)
+  { 
+    if(digitalRead(BACK_BTN_PIN) == 1)
+    {
+      break;
+    }
+    else if(digitalRead(UP_BTN_PIN) == 1)
+    {
+      stepCountGoal += 100;
+      display.fillScreen(GxEPD_BLACK);
+      display.setCursor(0, 30);
+      display.print("Current step count goal: ");
+      display.print(stepCountGoal);
+      display.display(true); // partial refresh
+    }
+    else if(digitalRead(DOWN_BTN_PIN) == 1)
+    {
+      stepCountGoal -= 100;
+      display.fillScreen(GxEPD_BLACK);
+      display.setCursor(0, 30);
+      display.print("Current step count goal: ");
+      display.print(stepCountGoal);
+      display.display(true); // partial refresh
+    }
+  }
   showMenu(menuIndex, false);
 }
 
